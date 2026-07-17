@@ -258,8 +258,8 @@ void Factorise::processSupernode(Int sn) {
   // ===================================================
   HIPO_CLOCK_START(2);
   // threshold for regularisation
-  // const double reg_thresh = max_diag_ * kDynamicDiagCoeff;
-  const double reg_thresh = M_norm1_ * kDynamicDiagCoeff;
+  // const double reg_thresh = max_diag_ * hipoTuning().dynamic_reg_coeff;
+  const double reg_thresh = M_norm1_ * hipoTuning().dynamic_reg_coeff;
 
   if (Int flag = FH->denseFactorise(reg_thresh)) {
     flag_stop_.store(true, std::memory_order_relaxed);
@@ -334,6 +334,7 @@ bool Factorise::run(Numeric& num) {
   num.swaps_ = std::move(swaps_);
   num.pivot_2x2_ = std::move(pivot_2x2_);
   num.data_ = &data_;
+  num.finaliseFactor();
 
   HIPO_CLOCK_STOP(1, data_, kTimeFactorise);
 

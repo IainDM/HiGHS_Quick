@@ -7,6 +7,7 @@
 #include "Status.h"
 #include "ipm/hipo/auxiliary/Auxiliary.h"
 #include "ipm/hipo/auxiliary/Logger.h"
+#include "ipm/hipo/factorhighs/FactorHiGHSSettings.h"
 #include "parallel/HighsParallel.h"
 
 namespace hipo {
@@ -132,13 +133,13 @@ Int FactorHiGHSSolver::solveAS(const std::vector<double>& rhs_x,
 
   Int n = rhs_x.size();
 
-  // create single rhs
-  std::vector<double> rhs;
-  rhs.insert(rhs.end(), rhs_x.begin(), rhs_x.end());
-  rhs.insert(rhs.end(), rhs_y.begin(), rhs_y.end());
+  // create single rhs in the persistent buffer
+  as_rhs_.resize(rhs_x.size() + rhs_y.size());
+  std::copy(rhs_x.begin(), rhs_x.end(), as_rhs_.begin());
+  std::copy(rhs_y.begin(), rhs_y.end(), as_rhs_.begin() + n);
 
   Clock clock;
-  if (FH_.solve(rhs)) return kStatusErrorSolve;
+  if (FH_.solve(as_rhs_)) return kStatusErrorSolve;
 
   info_.solve_time += clock.stop();
   info_.solve_number++;
@@ -146,8 +147,8 @@ Int FactorHiGHSSolver::solveAS(const std::vector<double>& rhs_x,
   data_.back().num_solves++;
 
   // split lhs
-  lhs_x = std::vector<double>(rhs.begin(), rhs.begin() + n);
-  lhs_y = std::vector<double>(rhs.begin() + n, rhs.end());
+  lhs_x.assign(as_rhs_.begin(), as_rhs_.begin() + n);
+  lhs_y.assign(as_rhs_.begin() + n, as_rhs_.end());
 
   return kStatusOk;
 }
@@ -402,7 +403,7 @@ Int FactorHiGHSSolver::chooseOrdering(const std::vector<Int>& rows,
     if (orderings_to_try[i] == kHipoMetisString) {
       idx_t options[METIS_NOPTIONS];
       HighsExtras::metis::set_default_options(options);
-      options[METIS_OPTION_SEED] = kMetisSeed;
+      options[METIS_OPTION_SEED] = hipoTuning().metis_seed;
 
       options[METIS_OPTION_DBGLVL] = 0;
 
