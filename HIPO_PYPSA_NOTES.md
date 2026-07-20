@@ -34,13 +34,26 @@ From the published benchmark results (best run per instance/solver, 16-vCPU VMs)
 - There are ~8 triangular solves per IPM iteration. With `HIPO_TIMING_LEVEL 2`, the
   solve phase splits into: dense BLAS ~44%, **pivot-swap permutations ~22%**, sparse
   scatter ~4%, and ~30% overhead (dominated by per-block heap allocations).
-- Iteration counts are inflated by data scaling: these instances carry 1e10 bounds, and
-  `user_bound_scale=-14` reached a 2.5x smaller duality gap in identical wall time with
-  refinement residuals improving from ~1.0 to ~1e-13.
+- Iteration counts are inflated by data scaling: `user_bound_scale=-14` reached a 2.5x
+  smaller duality gap in identical wall time with refinement residuals improving from
+  ~1.0 to ~1e-13. (The problem's units are the issue — RHS up to 1e5, costs up to 3e5 —
+  not its bounds: every real bound in these files is a true infinity.)
+- A red herring worth recording: HiGHS's "excessively large column bounds" warning on
+  these instances is triggered by a *single artificial variable* — PyPSA encodes the
+  objective constant (capital cost of existing assets, ~1e10) as a variable fixed at
+  that value with cost -1. Controlled A/B runs on `pypsa-de-elec-10-1h` (stripping the
+  variable from the MPS) show HiGHS presolve removes it either way and the IPM iterate
+  trajectories are identical to 8 digits; its only effects are (a) the misleading
+  warning and the `user_bound_scale` suggestion derived from it, and (b) a ~3x
+  *distortion of the reported relative duality gap* (the -1.13e10 offset shrinks |obj|
+  from 1.7e10 to 5.7e9, inflating gap/|obj| and delaying gap-based termination at equal
+  true progress). PyPSA >= 1.1.0 has `include_objective_constant=False` to stop
+  emitting it (default flips in PyPSA 2.0).
 
 Suggested priority for closing the hourly-family gap:
-1. scaling defaults for energy-model data (an existing option; also fixable upstream in
-   PyPSA/linopy by emitting true infinities instead of 1e10 big-M bounds);
+1. scaling defaults for energy-model data (an existing option; `user_bound_scale=-14`
+   helps with or without the objective-constant artifact — measured — so internal
+   automatic scaling in HiPO is the durable fix);
 2. parallelising the triangular solves (the acknowledged engineering gap);
 3. supernode-amalgamation and regularisation tuning (compounds with both).
 
