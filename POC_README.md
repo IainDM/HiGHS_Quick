@@ -102,8 +102,13 @@ Takeaways:
   valuable input for the upstream conversation either way.
 - The biggest *convergence* lever found remains data scaling:
   `user_bound_scale=-14` reached a 2.5× smaller duality gap in equal time on
-  hourly instances (their 1e10 "big-M" bounds are numerically hostile; the
-  root fix belongs in PyPSA/linopy emitting true infinities).
+  hourly instances. The model's *units* (RHS up to 1e5, costs up to 3e5) are
+  what's hostile — its bounds are true infinities. The one large finite bound
+  in each PyPSA file is an artificial variable fixed at the objective constant
+  (~1e10); measured A/B runs show it does not change the IPM iterates (presolve
+  removes it) but it inflates the reported relative duality gap ~3× and is the
+  sole trigger of HiGHS's bound warnings. PyPSA ≥ 1.1.0 can stop emitting it
+  (`include_objective_constant=False`); keep `user_bound_scale` either way.
 
 ## Status & caveats
 
